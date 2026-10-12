@@ -1,0 +1,1588 @@
+<div class="app-container">
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="top-nav">
+    <div class="nav-brand-section">
+      <div class="brand-logo">
+        <img src="/aura-logo.svg" alt="AURA" class="brand-logo-img" />
+        <div class="brand-text">
+          <span class="brand-title">AURA</span>
+          <span class="brand-subtitle">Planillas & Nóminas</span>
+        </div>
+      </div>
+
+      <div class="company-badge-selector">
+        <span class="label-dim">Empresa:</span>
+        <select class="company-select" [ngModel]="payrollService.currentCompanyId()" (ngModelChange)="changeCompany($event)">
+          @for (comp of payrollService.companies(); track comp.id) {
+            <option [value]="comp.id">{{ comp.name }} ({{ comp.workerCount }} trabajadores)</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <!-- Period Status & Fast Actions -->
+    <div class="nav-status-section">
+      <div class="period-pill">
+        <span class="period-name">Período: <strong>{{ payrollService.currentPeriod().periodName }}</strong></span>
+        @if (payrollService.currentPeriod().status === 'aprobado') {
+          <span class="badge badge-success">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            APROBADO
+          </span>
+        } @else if (payrollService.currentPeriod().status === 'en_revision') {
+          <span class="badge badge-warning">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            EN REVISIÓN HUMANA
+          </span>
+        } @else {
+          <span class="badge badge-neutral">BORRADOR</span>
+        }
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" (click)="exportToExcel()" title="Descargar Planilla en Excel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Excel
+        </button>
+
+        <button class="btn btn-secondary btn-sm" (click)="exportToPDFSummary()" title="Descargar Resumen en PDF">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          PDF
+        </button>
+
+        @if (payrollService.currentPeriod().status !== 'aprobado') {
+          <button class="btn btn-primary btn-sm glow-pulse" (click)="setTab('approval')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Aprobar Planilla
+          </button>
+        } @else {
+          <button class="btn btn-outline-primary btn-sm" (click)="openReopenModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 4v6h6"></path>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            Reabrir Período
+          </button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="main-tabs-nav">
+    <button class="tab-button" [class.active]="activeTab() === 'dashboard'" (click)="setTab('dashboard')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      Dashboard
+    </button>
+
+    <button class="tab-button" [class.active]="activeTab() === 'workers'" (click)="setTab('workers')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      A. Registro Laboral
+      <span class="tab-count">{{ payrollService.companyWorkers().length }}</span>
+    </button>
+
+    <button class="tab-button" [class.active]="activeTab() === 'payroll'" (click)="setTab('payroll')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+        <line x1="6" y1="8" x2="6" y2="8"></line>
+        <line x1="10" y1="8" x2="10" y2="8"></line>
+        <line x1="14" y1="8" x2="14" y2="8"></line>
+        <line x1="18" y1="8" x2="18" y2="8"></line>
+        <line x1="6" y1="12" x2="18" y2="12"></line>
+        <line x1="6" y1="16" x2="18" y2="16"></line>
+      </svg>
+      B. Cálculo & Novedades
+    </button>
+
+    <button class="tab-button tab-highlight" [class.active]="activeTab() === 'approval'" (click)="setTab('approval')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
+      Aprobación Humana
+      @if (allDiscrepancies().length > 0) {
+        <span class="tab-badge-warning">{{ allDiscrepancies().length }}</span>
+      }
+    </button>
+
+    <button class="tab-button" [class.active]="activeTab() === 'benefits'" (click)="setTab('benefits')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 12 20 22 4 22 4 12"></polyline>
+        <rect x="2" y="7" width="20" height="5"></rect>
+        <line x1="12" y1="22" x2="12" y2="7"></line>
+        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+      </svg>
+      C. Beneficios & Obligaciones
+    </button>
+
+    <button class="tab-button" [class.active]="activeTab() === 'reports'" (click)="setTab('reports')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+      D. Reportes & Documentos
+    </button>
+  </nav>
+
+  <!-- MAIN VIEW CONTENT -->
+  <main class="main-content">
+
+    <!-- ========================================== -->
+    <!-- 1. DASHBOARD & KPIs                        -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'dashboard') {
+      <div class="dashboard-grid">
+        <!-- Banner Informativo Caso Aura -->
+        <div class="aura-card banner-card">
+          <div class="banner-content">
+            <div class="banner-tag">CASO EN EJECUCIÓN</div>
+            <h2>Administración de Planilla: <strong>{{ payrollService.currentCompany().name }}</strong></h2>
+            <p>
+              Aura procesa las novedades de <strong>{{ payrollService.companyWorkers().length }} colaboradores</strong> para el periodo <strong>{{ payrollService.currentPeriod().periodName }}</strong>.
+              El motor laboral calcula automáticamente ingresos afectos, horas extras con recargo, sistema privado y nacional de pensiones, retención de 5ta categoría y aportes patronales.
+            </p>
+            <div class="banner-footer-actions">
+              <button class="btn btn-primary btn-sm" (click)="setTab('payroll')">
+                Registrar Novedades del Mes
+              </button>
+              <button class="btn btn-secondary btn-sm" (click)="setTab('approval')">
+                Revisar Auditoría e Inconsistencias ({{ allDiscrepancies().length }})
+              </button>
+            </div>
+          </div>
+          <div class="banner-status-box">
+            <span class="status-label">ESTADO DE APROBACIÓN HUMANA</span>
+            @if (payrollService.currentPeriod().status === 'aprobado') {
+              <div class="status-badge-big status-approved">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>APROBADO FORMALMENTE</span>
+              </div>
+              <p class="status-meta">Firmado por: {{ payrollService.currentPeriod().approvedBy }}</p>
+              <p class="status-code">Cód: {{ payrollService.currentPeriod().approvalCode }}</p>
+            } @else {
+              <div class="status-badge-big status-pending">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>PENDIENTE DE VALIDACIÓN</span>
+              </div>
+              <p class="status-meta">Bloqueo de seguridad: Requiere checklist de auditoría antes de generar boletas de pago.</p>
+            }
+          </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">TOTAL TRABAJADORES</span>
+              <span class="metric-icon">👥</span>
+            </div>
+            <div class="metric-value">{{ payrollService.payrollSummary().workerCount }}</div>
+            <div class="metric-sub">
+              <span class="text-success">{{ payrollService.payrollSummary().activeCount }} Activos</span> |
+              <span class="text-dim">{{ payrollService.payrollSummary().workerCount - payrollService.payrollSummary().activeCount }} Cesados / Suspendidos</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">TOTAL REMUNERACIÓN BRUTA</span>
+              <span class="metric-icon">💵</span>
+            </div>
+            <div class="metric-value text-primary">S/ {{ payrollService.payrollSummary().totalGross.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</div>
+            <div class="metric-sub">Sueldos base + Asig. Fam. + H.E. + Bonos</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">RETENCIONES & DESCUENTOS</span>
+              <span class="metric-icon">📉</span>
+            </div>
+            <div class="metric-value text-warning">S/ {{ payrollService.payrollSummary().totalDeductions.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</div>
+            <div class="metric-sub">AFP/ONP + Renta 5ta + Tardanzas + Adelantos</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">NETO TOTAL A PAGAR</span>
+              <span class="metric-icon">💳</span>
+            </div>
+            <div class="metric-value text-success">S/ {{ payrollService.payrollSummary().totalNet.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</div>
+            <div class="metric-sub">Monto líquido a abonar a colaboradores</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">COSTO TOTAL EMPRESA</span>
+              <span class="metric-icon">🏢</span>
+            </div>
+            <div class="metric-value">S/ {{ payrollService.payrollSummary().totalEmployerCost.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</div>
+            <div class="metric-sub">Incluye EsSalud (S/ {{ payrollService.payrollSummary().totalEsSalud.toLocaleString('es-PE', { minimumFractionDigits: 0 }) }}) + SCTR</div>
+          </div>
+        </div>
+
+        <!-- 2 Column Section: Obligations Semaphore + Quality Audit -->
+        <div class="dashboard-two-col">
+          <!-- Calendario y Semáforo de Obligaciones -->
+          <div class="aura-card">
+            <div class="section-title-row">
+              <div>
+                <h3>Semáforo de Obligaciones Laborales</h3>
+                <p class="section-subtitle">Vencimientos tributarios y legales vigentes ante SUNAT y AFPnet</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" (click)="setTab('benefits')">Ver Detalle</button>
+            </div>
+
+            <div class="obligations-list">
+              @for (ob of payrollService.obligations(); track ob.id) {
+                <div class="obligation-item">
+                  <div class="ob-status-indicator" [class.status-alert]="ob.status === 'Por Vencer'" [class.status-ok]="ob.status === 'Al Día'"></div>
+                  <div class="ob-details">
+                    <div class="ob-top">
+                      <span class="ob-name">{{ ob.title }}</span>
+                      <span class="badge" [class.badge-warning]="ob.status === 'Por Vencer'" [class.badge-success]="ob.status === 'Al Día'">
+                        {{ ob.status }} ({{ ob.daysRemaining }} días)
+                      </span>
+                    </div>
+                    <div class="ob-meta">
+                      <span>Vence: <strong>{{ ob.dueDate }}</strong></span>
+                      @if (ob.amountEstimated > 0) {
+                        <span>Monto Estimado: <strong>S/ {{ ob.amountEstimated.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong></span>
+                      }
+                      <span class="badge badge-neutral">{{ ob.authority }}</span>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Discrepancias y Alertas de Calidad -->
+          <div class="aura-card">
+            <div class="section-title-row">
+              <div>
+                <h3>Auditoría de Inconsistencias (Reglas Laborales)</h3>
+                <p class="section-subtitle">Detección proactiva antes de la aprobación humana</p>
+              </div>
+              <span class="badge badge-warning">{{ allDiscrepancies().length }} Alertas</span>
+            </div>
+
+            @if (allDiscrepancies().length === 0) {
+              <div class="clean-audit-message">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <h4>Sin observaciones</h4>
+                <p>Todas las reglas laborales, sueldos mínimos y límites de descuento están en regla.</p>
+              </div>
+            } @else {
+              <div class="discrepancies-list">
+                @for (d of allDiscrepancies(); track d.worker.id + d.warning) {
+                  <div class="discrepancy-card">
+                    <div class="disc-header">
+                      <strong>{{ d.worker.name }}</strong>
+                      <span class="badge badge-neutral font-mono">DNI: {{ d.worker.dni }}</span>
+                    </div>
+                    <p class="disc-text">{{ d.warning }}</p>
+                    <div class="disc-footer">
+                      <span class="text-dim">Cargo: {{ d.worker.role }} | Sueldo: S/ {{ d.worker.baseSalary }}</span>
+                      <button class="btn btn-secondary btn-sm" (click)="openNoveltyModal(d.calc)">Corregir</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- 2. A. REGISTRO LABORAL (80 TRABAJADORES)   -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'workers') {
+      <div class="workers-view">
+        <div class="view-header-bar">
+          <div>
+            <h2>A. Registro Laboral de Trabajadores</h2>
+            <p class="section-subtitle">
+              Padrón maestro de {{ payrollService.companyWorkers().length }} trabajadores de {{ payrollService.currentCompany().name }}.
+              Gestión de contratos, datos personales, cuentas bancarias y afiliación previsional.
+            </p>
+          </div>
+          <button class="btn btn-primary" (click)="openNewWorkerModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nuevo Colaborador
+          </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar aura-card">
+          <div class="filter-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              class="form-input"
+              placeholder="Buscar por nombre, DNI o cargo..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <div class="filter-selects">
+            <select class="form-select" [ngModel]="selectedDepartment()" (ngModelChange)="selectedDepartment.set($event)">
+              @for (dept of departments(); track dept) {
+                <option [value]="dept">{{ dept === 'TODOS' ? 'Todos los Departamentos' : dept }}</option>
+              }
+            </select>
+
+            <select class="form-select" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
+              <option value="TODOS">Todos los Estados</option>
+              <option value="Activo">Activos</option>
+              <option value="Cesado">Cesados</option>
+              <option value="Suspensión">En Suspensión</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Workers Table -->
+        <div class="aura-table-wrapper">
+          <table class="aura-table">
+            <thead>
+              <tr>
+                <th>DNI / Cód.</th>
+                <th>Colaborador</th>
+                <th>Departamento / C.C.</th>
+                <th>Cargo</th>
+                <th>Sueldo Base</th>
+                <th>Contrato</th>
+                <th>Régimen Pensión</th>
+                <th>Estado Laboral</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (w of filteredWorkers(); track w.id) {
+                <tr>
+                  <td>
+                    <div class="font-mono text-primary" style="font-weight: 600;">{{ w.dni }}</div>
+                    <span class="text-dim font-mono" style="font-size: 0.7rem;">{{ w.id }}</span>
+                  </td>
+                  <td>
+                    <div style="font-weight: 600;">{{ w.name }}</div>
+                    <div class="text-dim" style="font-size: 0.75rem;">{{ w.email }}</div>
+                  </td>
+                  <td>
+                    <div>{{ w.department }}</div>
+                    <span class="badge badge-neutral font-mono">{{ w.costCenter }}</span>
+                  </td>
+                  <td>{{ w.role }}</td>
+                  <td>
+                    <strong [class.text-danger]="w.baseSalary < 1025">S/ {{ w.baseSalary.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+                    @if (w.hasFamilyAllowance) {
+                      <span class="badge badge-info" style="margin-left: 4px;" title="Asignación Familiar activa">+AF</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge-primary]="w.contractType === 'Indeterminado'" [class.badge-warning]="w.contractType === 'Plazo Fijo'">
+                      {{ w.contractType }}
+                    </span>
+                    <div class="text-dim" style="font-size: 0.7rem;">Desde: {{ w.hireDate }}</div>
+                  </td>
+                  <td>
+                    <div>{{ w.pensionSystem }}</div>
+                    @if (w.cussp) {
+                      <div class="text-dim font-mono" style="font-size: 0.7rem;">{{ w.cussp }}</div>
+                    } @else if (w.pensionSystem !== 'ONP') {
+                      <span class="badge badge-danger" style="font-size: 0.65rem;">Sin CUSSP</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge-success]="w.status === 'Activo'" [class.badge-danger]="w.status === 'Cesado'" [class.badge-warning]="w.status === 'Suspensión'">
+                      {{ w.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="table-actions">
+                      <button class="btn btn-secondary btn-sm" (click)="openEditWorkerModal(w)" title="Editar Trabajador">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                      </button>
+                      <button
+                        class="btn btn-sm"
+                        [class.btn-danger]="w.status === 'Activo'"
+                        [class.btn-success]="w.status !== 'Activo'"
+                        (click)="toggleWorkerStatus(w)"
+                        [title]="w.status === 'Activo' ? 'Dar de Baja / Cese' : 'Reactivar'">
+                        {{ w.status === 'Activo' ? 'Cese' : 'Activar' }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- 3. B. CÁLCULO & NOVEDADES                   -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'payroll') {
+      <div class="payroll-view">
+        <div class="view-header-bar">
+          <div>
+            <h2>B. Cálculo de Remuneraciones & Novedades Mensuales</h2>
+            <p class="section-subtitle">
+              Registro de novedades (asistencia, tardanzas, horas extras 25% y 35%, bonos y descuentos) con motor de cálculo legal en tiempo real.
+            </p>
+          </div>
+          <div class="header-actions">
+            @if (payrollService.currentPeriod().status === 'aprobado') {
+              <div class="period-locked-notice">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Período Bloqueado por Aprobación Humana
+              </div>
+            } @else {
+              <button class="btn btn-primary" (click)="setTab('approval')">
+                Ir a Checklist de Aprobación
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar aura-card">
+          <div class="filter-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              class="form-input"
+              placeholder="Buscar colaborador en planilla..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <div class="filter-selects">
+            <select class="form-select" [ngModel]="selectedDepartment()" (ngModelChange)="selectedDepartment.set($event)">
+              @for (dept of departments(); track dept) {
+                <option [value]="dept">{{ dept === 'TODOS' ? 'Todos los Departamentos' : dept }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Payroll Calculation Table -->
+        <div class="aura-table-wrapper">
+          <table class="aura-table">
+            <thead>
+              <tr>
+                <th>Colaborador</th>
+                <th>Sueldo Base</th>
+                <th>Días / H.E.</th>
+                <th>Asig. Fam.</th>
+                <th>Bonos</th>
+                <th>Total Bruto</th>
+                <th>Pensión (AFP/ONP)</th>
+                <th>5ta / Tard. / Adel.</th>
+                <th>Tot. Dctos</th>
+                <th>NETO A PAGAR</th>
+                <th>EsSalud (9%)</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (calc of filteredCalculations(); track calc.workerId) {
+                <tr [class.row-menu-open]="activeActionMenuWorkerId() === calc.workerId">
+                  <td>
+                    <div style="font-weight: 600;">{{ calc.worker.name }}</div>
+                    <div class="text-dim font-mono" style="font-size: 0.75rem;">{{ calc.worker.dni }} • {{ calc.worker.role }}</div>
+                    @if (calc.discrepancyWarnings.length > 0) {
+                      <div class="text-warning" style="font-size: 0.7rem; margin-top: 2px;">
+                        ⚠️ {{ calc.discrepancyWarnings[0] }}
+                      </div>
+                    }
+                  </td>
+                  <td>S/ {{ calc.worker.baseSalary.toFixed(2) }}</td>
+                  <td>
+                    <div>{{ calc.novelty.workedDays - calc.novelty.absenceDays }} d.</div>
+                    @if (calc.novelty.overtime25Hours > 0 || calc.novelty.overtime35Hours > 0) {
+                      <span class="badge badge-info" style="font-size: 0.7rem;">
+                        +{{ calc.novelty.overtime25Hours + calc.novelty.overtime35Hours }}h extras
+                      </span>
+                    }
+                  </td>
+                  <td>S/ {{ calc.familyAllowance.toFixed(2) }}</td>
+                  <td>S/ {{ calc.bonusesTotal.toFixed(2) }}</td>
+                  <td>
+                    <strong class="text-primary">S/ {{ calc.totalGross.toFixed(2) }}</strong>
+                  </td>
+                  <td>
+                    <div>S/ {{ calc.totalPensionDeduction.toFixed(2) }}</div>
+                    <span class="text-dim" style="font-size: 0.7rem;">{{ calc.worker.pensionSystem }}</span>
+                  </td>
+                  <td>
+                    <div>5ta: S/ {{ calc.tax5thCategory.toFixed(2) }}</div>
+                    <div class="text-dim" style="font-size: 0.7rem;">
+                      Otros: S/ {{ (calc.tardinessDeduction + calc.absenceDeduction + calc.advanceDeduction + calc.loanDeduction + calc.judicialRetention).toFixed(2) }}
+                    </div>
+                  </td>
+                  <td>
+                    <strong class="text-warning">S/ {{ calc.totalDeductions.toFixed(2) }}</strong>
+                  </td>
+                  <td>
+                    <strong class="text-success" style="font-size: 1rem;">S/ {{ calc.netPay.toFixed(2) }}</strong>
+                  </td>
+                  <td>S/ {{ calc.essaludContribution.toFixed(2) }}</td>
+                  <td class="col-actions" [class.menu-open]="activeActionMenuWorkerId() === calc.workerId">
+                    <div class="action-dropdown-container">
+                      <button
+                        type="button"
+                        class="btn-action-dropdown"
+                        (click)="toggleActionMenu(calc.workerId, $event)"
+                        [class.active]="activeActionMenuWorkerId() === calc.workerId"
+                        title="Opciones de cálculo y boleta">
+                        <span>Acciones</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </button>
+
+                      @if (activeActionMenuWorkerId() === calc.workerId) {
+                        <div class="action-dropdown-menu" (click)="$event.stopPropagation()">
+                          <button
+                            type="button"
+                            class="dropdown-item"
+                            (click)="openNoveltyModal(calc); closeActionMenu()"
+                            [disabled]="payrollService.currentPeriod().status === 'aprobado'">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 20h9"></path>
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                            <div class="item-text">
+                              <span class="item-title">Modificar Novedades</span>
+                              <span class="item-desc">Horas extras, faltas, bonos</span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="dropdown-item"
+                            (click)="openPayslipPreview(calc); closeActionMenu()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14 2 14 8 20 8"></polyline>
+                              <line x1="16" y1="13" x2="8" y2="13"></line>
+                              <line x1="16" y1="17" x2="8" y2="17"></line>
+                              <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            <div class="item-text">
+                              <span class="item-title">Ver Boleta de Pago</span>
+                              <span class="item-desc">Previsualización completa</span>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="dropdown-item"
+                            (click)="downloadWorkerPayslipPDF(calc, $event)">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <div class="item-text">
+                              <span class="item-title">Descargar Boleta PDF</span>
+                              <span class="item-desc">Archivo oficial descargable</span>
+                            </div>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- 4. APROBACIÓN HUMANA (CONTROL CRÍTICO)     -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'approval') {
+      <div class="approval-view">
+        <div class="view-header-bar">
+          <div>
+            <h2>Control y Aprobación Humana de la Planilla</h2>
+            <p class="section-subtitle">
+              Paso crítico: La aprobación humana previene errores en las reglas o datos que afecten a los 80 trabajadores.
+              Una vez aprobada, la planilla queda sellada con código criptográfico de auditoría.
+            </p>
+          </div>
+
+          @if (payrollService.currentPeriod().status === 'aprobado') {
+            <button class="btn btn-outline-primary" (click)="openReopenModal()">
+              Reabrir para Modificaciones
+            </button>
+          } @else {
+            <button class="btn btn-success btn-lg glow-pulse" (click)="openApprovalModal()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <polyline points="9 12 11 14 15 10"></polyline>
+              </svg>
+              Proceder con Aprobación Formal
+            </button>
+          }
+        </div>
+
+        <!-- Approval Status Card -->
+        <div class="aura-card approval-banner-card">
+          <div class="approval-card-header">
+            <div>
+              <h3>Período {{ payrollService.currentPeriod().periodName }}</h3>
+              <p class="text-dim">Empresa: {{ payrollService.currentCompany().name }} (RUC: {{ payrollService.currentCompany().ruc }})</p>
+            </div>
+            @if (payrollService.currentPeriod().status === 'aprobado') {
+              <div class="badge badge-success" style="font-size: 0.9rem; padding: 0.4rem 1rem;">
+                ✓ APROBADO & SELLADO
+              </div>
+            } @else {
+              <div class="badge badge-warning" style="font-size: 0.9rem; padding: 0.4rem 1rem;">
+                ⚠️ EN REVISIÓN HUMANA OBLIGATORIA
+              </div>
+            }
+          </div>
+
+          @if (payrollService.currentPeriod().status === 'aprobado') {
+            <div class="approved-summary-box">
+              <div class="approved-details">
+                <p><strong>Aprobado por:</strong> {{ payrollService.currentPeriod().approvedBy }}</p>
+                <p><strong>Fecha y Hora de Firma:</strong> {{ payrollService.currentPeriod().approvalDate }}</p>
+                <p><strong>Código de Validación Digital:</strong> <code class="font-mono text-primary">{{ payrollService.currentPeriod().approvalCode }}</code></p>
+                <p><strong>Observaciones de cierre:</strong> {{ payrollService.currentPeriod().approvalNotes }}</p>
+              </div>
+              <div class="approved-actions">
+                <button class="btn btn-primary" (click)="exportToPDFSummary()">Descargar Certificado y Planilla PDF</button>
+                <button class="btn btn-secondary" (click)="exportToExcel()">Descargar Libro de Planilla Excel</button>
+              </div>
+            </div>
+          } @else {
+            <div class="pre-approval-warning-box">
+              <div class="warning-icon-col">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div>
+                <h4>Revisión de Parámetros Laborales Requerida</h4>
+                <p>
+                  Antes de emitir pagos y boletas oficiales a los 80 trabajadores, debes inspeccionar las alertas detectadas por el sistema.
+                  Asegúrate de que no existan descuentos por encima del tope legal del 50%, retenciones indebidas ni sueldos inferiores a la RMV (S/ 1,025).
+                </p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Discrepancy Breakdown Section -->
+        <div class="aura-card" style="margin-top: 1.5rem;">
+          <div class="section-title-row">
+            <div>
+              <h3>Hallazgos del Motor de Cumplimiento Laboral</h3>
+              <p class="section-subtitle">Inconsistencias que el responsable debe ratificar o corregir</p>
+            </div>
+            <span class="badge" [class.badge-success]="allDiscrepancies().length === 0" [class.badge-warning]="allDiscrepancies().length > 0">
+              {{ allDiscrepancies().length }} Casos Detectados
+            </span>
+          </div>
+
+          <div class="discrepancies-table-container">
+            <table class="aura-table">
+              <thead>
+                <tr>
+                  <th>Trabajador</th>
+                  <th>DNI</th>
+                  <th>Puesto</th>
+                  <th>Alerta Detectada</th>
+                  <th>Sueldo Base</th>
+                  <th>Neto Calculado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of allDiscrepancies(); track item.worker.id + item.warning) {
+                  <tr>
+                    <td><strong>{{ item.worker.name }}</strong></td>
+                    <td class="font-mono">{{ item.worker.dni }}</td>
+                    <td>{{ item.worker.role }}</td>
+                    <td>
+                      <span class="text-warning">⚠️ {{ item.warning }}</span>
+                    </td>
+                    <td>S/ {{ item.worker.baseSalary.toFixed(2) }}</td>
+                    <td><strong class="text-success">S/ {{ item.calc.netPay.toFixed(2) }}</strong></td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm" (click)="openNoveltyModal(item.calc)">
+                        Ajustar Novedad
+                      </button>
+                    </td>
+                  </tr>
+                }
+                @if (allDiscrepancies().length === 0) {
+                  <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem;" class="text-success">
+                      ✓ Todas las validaciones de consistencia laboral han pasado satisfactoriamente.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Audit Trail / Historial de Acciones -->
+        <div class="aura-card" style="margin-top: 1.5rem;">
+          <div class="section-title-row">
+            <div>
+              <h3>Pista de Auditoría de Planilla</h3>
+              <p class="section-subtitle">Registro cronológico de modificaciones y aprobaciones humanas</p>
+            </div>
+          </div>
+
+          <div class="audit-timeline">
+            @for (log of payrollService.auditLogs(); track log.id) {
+              <div class="timeline-row">
+                <div class="time-badge font-mono">{{ log.timestamp }}</div>
+                <div class="category-badge">
+                  <span class="badge badge-neutral">{{ log.category }}</span>
+                </div>
+                <div class="log-info">
+                  <strong>{{ log.action }}</strong> por <span class="text-primary">{{ log.user }}</span>:
+                  <span class="text-muted">{{ log.description }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- 5. C. BENEFICIOS & OBLIGACIONES            -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'benefits') {
+      <div class="benefits-view">
+        <div class="view-header-bar">
+          <div>
+            <h2>C. Beneficios Sociales y Obligaciones</h2>
+            <p class="section-subtitle">
+              Cálculo y provisiones de Gratificaciones (Julio/Diciembre), CTS semestral, Vacaciones 30 días,
+              Liquidaciones por Cese (BBSS truncos) y Seguimiento de Vencimientos Laborales.
+            </p>
+          </div>
+          <button class="btn btn-primary" (click)="openLiquidationModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="6" y1="8" x2="6" y2="8"></line>
+              <line x1="10" y1="8" x2="10" y2="8"></line>
+            </svg>
+            Calcular Liquidación por Cese
+          </button>
+        </div>
+
+        <!-- Tabs inside benefits: Overview cards -->
+        <div class="benefits-summary-grid">
+          <div class="aura-card benefit-card">
+            <div class="benefit-card-header">
+              <span class="benefit-icon">🎄</span>
+              <div>
+                <h4>Gratificaciones Legales</h4>
+                <p class="text-dim">Julio / Diciembre + 9% Bonificación Extraordinaria EsSalud</p>
+              </div>
+            </div>
+            <div class="benefit-amount">
+              S/ {{ (payrollService.payrollSummary().totalGross * 1.09).toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}
+            </div>
+            <p class="benefit-note">Provisión mensual: 1/6 de remuneración computable + 9% Ley 29351.</p>
+          </div>
+
+          <div class="aura-card benefit-card">
+            <div class="benefit-card-header">
+              <span class="benefit-icon">🏦</span>
+              <div>
+                <h4>CTS Semestral</h4>
+                <p class="text-dim">Depósito en Mayo y Noviembre según D.S. 001-97-TR</p>
+              </div>
+            </div>
+            <div class="benefit-amount">
+              S/ {{ (payrollService.payrollSummary().totalGross * 1.166 / 12 * 6).toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}
+            </div>
+            <p class="benefit-note">Cálculo: (Sueldo + AF + 1/6 Grati) / 12 * 6 meses.</p>
+          </div>
+
+          <div class="aura-card benefit-card">
+            <div class="benefit-card-header">
+              <span class="benefit-icon">🏖️</span>
+              <div>
+                <h4>Vacaciones Anuales</h4>
+                <p class="text-dim">30 días de descanso remunerado por cada año laborado</p>
+              </div>
+            </div>
+            <div class="benefit-amount">
+              S/ {{ (payrollService.payrollSummary().totalGross / 12).toLocaleString('es-PE', { minimumFractionDigits: 2 }) }} / mes
+            </div>
+            <p class="benefit-note">Provisión mensual del 8.33% del sueldo computable.</p>
+          </div>
+        </div>
+
+        <!-- Tabla de Beneficios Procesados y Liquidaciones -->
+        <div class="aura-card" style="margin-top: 1.5rem;">
+          <div class="section-title-row">
+            <div>
+              <h3>Historial de Beneficios y Liquidaciones Procesadas</h3>
+              <p class="section-subtitle">Registro de pagos extraordinarios y liquidaciones de cese</p>
+            </div>
+          </div>
+
+          <div class="aura-table-wrapper">
+            <table class="aura-table">
+              <thead>
+                <tr>
+                  <th>Concepto / Tipo</th>
+                  <th>Colaborador</th>
+                  <th>Período / Detalle</th>
+                  <th>Sueldo Base</th>
+                  <th>Monto Bruto</th>
+                  <th>Bono 9% EsSalud</th>
+                  <th>Neto a Pagar</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (b of payrollService.socialBenefits(); track b.id) {
+                  <tr>
+                    <td>
+                      <strong>{{ b.type }}</strong>
+                    </td>
+                    <td>
+                      <div>{{ b.workerName }}</div>
+                      <span class="text-dim font-mono" style="font-size: 0.75rem;">DNI: {{ b.dni }}</span>
+                    </td>
+                    <td>
+                      <div>{{ b.periodLabel }}</div>
+                      <div class="text-dim" style="font-size: 0.75rem;">{{ b.breakdownNotes }}</div>
+                    </td>
+                    <td>S/ {{ b.baseSalary.toFixed(2) }}</td>
+                    <td>S/ {{ b.grossBenefit.toFixed(2) }}</td>
+                    <td>S/ {{ b.extraBonusEsSalud.toFixed(2) }}</td>
+                    <td><strong class="text-success">S/ {{ b.netToPay.toFixed(2) }}</strong></td>
+                    <td>
+                      <span class="badge" [class.badge-success]="b.status === 'Pagado'" [class.badge-info]="b.status === 'Procesado'">
+                        {{ b.status }}
+                      </span>
+                    </td>
+                    <td class="font-mono text-dim">{{ b.calculationDate }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Calendario y Obligaciones Legales -->
+        <div class="aura-card" style="margin-top: 1.5rem;">
+          <div class="section-title-row">
+            <div>
+              <h3>Cronograma de Obligaciones y Fechas Críticas</h3>
+              <p class="section-subtitle">Calendario laboral con semáforo preventivo de vencimientos</p>
+            </div>
+          </div>
+
+          <div class="obligations-grid">
+            @for (ob of payrollService.obligations(); track ob.id) {
+              <div class="obligation-card" [class.urgent-card]="ob.status === 'Por Vencer'">
+                <div class="ob-card-top">
+                  <span class="badge badge-neutral font-mono">{{ ob.code }}</span>
+                  <span class="badge" [class.badge-warning]="ob.status === 'Por Vencer'" [class.badge-success]="ob.status === 'Al Día'">
+                    {{ ob.status }} ({{ ob.daysRemaining }} días)
+                  </span>
+                </div>
+                <h4>{{ ob.title }}</h4>
+                <p class="ob-desc">{{ ob.description }}</p>
+                <div class="ob-card-footer">
+                  <div>
+                    <span class="text-dim">Fecha Límite:</span>
+                    <strong>{{ ob.dueDate }}</strong>
+                  </div>
+                  @if (ob.amountEstimated > 0) {
+                    <div style="text-align: right;">
+                      <span class="text-dim">Monto Estimado:</span>
+                      <strong class="text-primary">S/ {{ ob.amountEstimated.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- 6. D. REPORTES & DOCUMENTOS                -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'reports') {
+      <div class="reports-view">
+        <div class="view-header-bar">
+          <div>
+            <h2>D. Reportes y Documentos Oficiales</h2>
+            <p class="section-subtitle">
+              Generación de boletas individuales en PDF, libros de planillas en Excel (.xlsx), reportes por centro de costo y constancias.
+            </p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" (click)="exportToExcel()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Exportar Planilla Excel (.xlsx)
+            </button>
+            <button class="btn btn-secondary" (click)="exportToPDFSummary()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Exportar Resumen PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Resumen por Centros de Trabajo / Departamentos -->
+        <div class="aura-card">
+          <h3>Resumen Consolidado por Centro de Costo & Departamento</h3>
+          <p class="section-subtitle">Distribución presupuestal del período {{ payrollService.currentPeriod().periodName }}</p>
+
+          <div class="aura-table-wrapper" style="margin-top: 1rem;">
+            <table class="aura-table">
+              <thead>
+                <tr>
+                  <th>Departamento</th>
+                  <th>Centro de Costo</th>
+                  <th>N° Trabajadores</th>
+                  <th>Planilla Bruta</th>
+                  <th>Aportes Patronales</th>
+                  <th>Total Costo Empresa</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Operaciones & Producción</strong></td>
+                  <td class="font-mono">CC-OPE-100</td>
+                  <td>32 colaboradores</td>
+                  <td>S/ 78,420.00</td>
+                  <td>S/ 8,038.05</td>
+                  <td><strong>S/ 86,458.05</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>Logística & Distribución</strong></td>
+                  <td class="font-mono">CC-LOG-101</td>
+                  <td>18 colaboradores</td>
+                  <td>S/ 44,800.00</td>
+                  <td>S/ 4,592.00</td>
+                  <td><strong>S/ 49,392.00</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>Ventas & Comercial</strong></td>
+                  <td class="font-mono">CC-VEN-102</td>
+                  <td>16 colaboradores</td>
+                  <td>S/ 52,900.00</td>
+                  <td>S/ 5,422.25</td>
+                  <td><strong>S/ 58,322.25</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>Administración & Finanzas</strong></td>
+                  <td class="font-mono">CC-ADM-103</td>
+                  <td>8 colaboradores</td>
+                  <td>S/ 31,500.00</td>
+                  <td>S/ 3,228.75</td>
+                  <td><strong>S/ 34,728.75</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>Tecnología & TI</strong></td>
+                  <td class="font-mono">CC-TEC-104</td>
+                  <td>6 colaboradores</td>
+                  <td>S/ 26,800.00</td>
+                  <td>S/ 2,747.00</td>
+                  <td><strong>S/ 29,547.00</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Emisión de Boletas Individuales -->
+        <div class="aura-card" style="margin-top: 1.5rem;">
+          <div class="section-title-row">
+            <div>
+              <h3>Emisión de Boletas de Pago por Colaborador</h3>
+              <p class="section-subtitle">Formato oficial peruano conforme al D.S. 001-98-TR</p>
+            </div>
+            <span class="text-dim">80 boletas listas para descarga</span>
+          </div>
+
+          <div class="aura-table-wrapper" style="margin-top: 1rem;">
+            <table class="aura-table">
+              <thead>
+                <tr>
+                  <th>Trabajador</th>
+                  <th>DNI</th>
+                  <th>Cargo</th>
+                  <th>Neto a Cobrar</th>
+                  <th>Cuenta Bancaria</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (calc of filteredCalculations().slice(0, 15); track calc.workerId) {
+                  <tr>
+                    <td><strong>{{ calc.worker.name }}</strong></td>
+                    <td class="font-mono">{{ calc.worker.dni }}</td>
+                    <td>{{ calc.worker.role }}</td>
+                    <td><strong class="text-success">S/ {{ calc.netPay.toFixed(2) }}</strong></td>
+                    <td class="font-mono text-dim">{{ calc.worker.bankName }} • {{ calc.worker.bankAccount }}</td>
+                    <td>
+                      <button class="btn btn-secondary btn-sm" (click)="openPayslipPreview(calc)">
+                        Ver & Descargar PDF
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div style="text-align: center; margin-top: 1rem; color: var(--text-dim); font-size: 0.85rem;">
+            Mostrando primeros 15 colaboradores. Utiliza los botones superiores para exportar el lote completo a Excel o PDF.
+          </div>
+        </div>
+      </div>
+    }
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODALS                                     -->
+  <!-- ========================================== -->
+
+  <!-- 1. MODAL: TRABAJADOR (ALTA / EDICIÓN) -->
+  @if (showWorkerModal()) {
+    <div class="modal-overlay" (click)="showWorkerModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 720px;">
+        <div class="modal-header">
+          <h3>{{ editingWorker().name ? 'Editar Colaborador' : 'Registrar Nuevo Colaborador' }}</h3>
+          <button class="btn btn-secondary btn-sm" (click)="showWorkerModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label class="form-label">DNI / Documento *</label>
+              <input type="text" class="form-input font-mono" maxlength="8" [ngModel]="editingWorker().dni" (ngModelChange)="editingWorker().dni = $event" placeholder="Ej: 70123456" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nombre y Apellidos *</label>
+              <input type="text" class="form-input" [ngModel]="editingWorker().name" (ngModelChange)="editingWorker().name = $event" placeholder="Ej: Juan Pérez Gómez" />
+            </div>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label class="form-label">Correo Electrónico</label>
+              <input type="email" class="form-input" [ngModel]="editingWorker().email" (ngModelChange)="editingWorker().email = $event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-input" [ngModel]="editingWorker().phone" (ngModelChange)="editingWorker().phone = $event" />
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Departamento</label>
+              <select class="form-select" [ngModel]="editingWorker().department" (ngModelChange)="editingWorker().department = $event">
+                <option value="Operaciones & Producción">Operaciones & Producción</option>
+                <option value="Logística & Distribución">Logística & Distribución</option>
+                <option value="Ventas & Comercial">Ventas & Comercial</option>
+                <option value="Administración & Finanzas">Administración & Finanzas</option>
+                <option value="Tecnología & TI">Tecnología & TI</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cargo / Puesto *</label>
+              <input type="text" class="form-input" [ngModel]="editingWorker().role" (ngModelChange)="editingWorker().role = $event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sueldo Base (S/) *</label>
+              <input type="number" class="form-input" [ngModel]="editingWorker().baseSalary" (ngModelChange)="editingWorker().baseSalary = +$event" />
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Tipo de Contrato</label>
+              <select class="form-select" [ngModel]="editingWorker().contractType" (ngModelChange)="editingWorker().contractType = $event">
+                <option value="Indeterminado">Indeterminado</option>
+                <option value="Plazo Fijo">Plazo Fijo</option>
+                <option value="Tiempo Parcial">Tiempo Parcial</option>
+                <option value="Prácticas">Prácticas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha de Ingreso</label>
+              <input type="date" class="form-input" [ngModel]="editingWorker().hireDate" (ngModelChange)="editingWorker().hireDate = $event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estado Laboral</label>
+              <select class="form-select" [ngModel]="editingWorker().status" (ngModelChange)="editingWorker().status = $event">
+                <option value="Activo">Activo</option>
+                <option value="Cesado">Cesado</option>
+                <option value="Suspensión">Suspensión</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Régimen Pensionario</label>
+              <select class="form-select" [ngModel]="editingWorker().pensionSystem" (ngModelChange)="editingWorker().pensionSystem = $event">
+                <option value="AFP Integra">AFP Integra</option>
+                <option value="AFP Prima">AFP Prima</option>
+                <option value="AFP Profuturo">AFP Profuturo</option>
+                <option value="AFP Habitat">AFP Habitat</option>
+                <option value="ONP">ONP (SNP 13%)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Comisión AFP</label>
+              <select class="form-select" [ngModel]="editingWorker().afpCommissionType" (ngModelChange)="editingWorker().afpCommissionType = $event">
+                <option value="Flujo">Flujo</option>
+                <option value="Mixta">Mixta (Saldo)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Código CUSSP</label>
+              <input type="text" class="form-input font-mono" [ngModel]="editingWorker().cussp" (ngModelChange)="editingWorker().cussp = $event" placeholder="CUSSP..." />
+            </div>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
+              <input type="checkbox" id="afCheck" [ngModel]="editingWorker().hasFamilyAllowance" (ngModelChange)="editingWorker().hasFamilyAllowance = $event" style="width: 18px; height: 18px;" />
+              <label for="afCheck" style="cursor: pointer; font-size: 0.85rem;">Tiene Asignación Familiar (10% RMV: S/ 102.50)</label>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Banco y N° Cuenta</label>
+              <input type="text" class="form-input" [ngModel]="editingWorker().bankAccount" (ngModelChange)="editingWorker().bankAccount = $event" placeholder="BCP 191-..." />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showWorkerModal.set(false)">Cancelar</button>
+          <button class="btn btn-primary" (click)="saveWorkerForm()">Guardar Colaborador</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 2. MODAL: REGISTRO DE NOVEDADES -->
+  @if (showNoveltyModal() && editingNovelty()) {
+    <div class="modal-overlay" (click)="showNoveltyModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 600px;">
+        <div class="modal-header">
+          <div>
+            <h3>Novedades del Mes: {{ selectedWorkerForNovelty()?.name }}</h3>
+            <span class="text-dim font-mono">DNI: {{ selectedWorkerForNovelty()?.dni }} | Cargo: {{ selectedWorkerForNovelty()?.role }}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" (click)="showNoveltyModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label class="form-label">Días Laborados (Base 30)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.workedDays" (ngModelChange)="editingNovelty()!.workedDays = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Días de Inasistencia / Faltas</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.absenceDays" (ngModelChange)="editingNovelty()!.absenceDays = +$event" />
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Horas Extras 25%</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.overtime25Hours" (ngModelChange)="editingNovelty()!.overtime25Hours = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Horas Extras 35%</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.overtime35Hours" (ngModelChange)="editingNovelty()!.overtime35Hours = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tardanzas (Minutos)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.tardinessMinutes" (ngModelChange)="editingNovelty()!.tardinessMinutes = +$event" />
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Bono Rendimiento (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.performanceBonus" (ngModelChange)="editingNovelty()!.performanceBonus = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bono Producción (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.productionBonus" (ngModelChange)="editingNovelty()!.productionBonus = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Movilidad Supeditada (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.mobilityAllowance" (ngModelChange)="editingNovelty()!.mobilityAllowance = +$event" />
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Adelanto Quincena (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.advancePayment" (ngModelChange)="editingNovelty()!.advancePayment = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Préstamo Empresa (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.loanDeduction" (ngModelChange)="editingNovelty()!.loanDeduction = +$event" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Retención Judicial (S/)</label>
+              <input type="number" class="form-input" [ngModel]="editingNovelty()?.judicialRetention" (ngModelChange)="editingNovelty()!.judicialRetention = +$event" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showNoveltyModal.set(false)">Cancelar</button>
+          <button class="btn btn-primary" (click)="saveNoveltyForm()">Guardar y Recalcular</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 3. MODAL: APROBACIÓN HUMANA FORMAL -->
+  @if (showApprovalModal()) {
+    <div class="modal-overlay" (click)="showApprovalModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 650px;">
+        <div class="modal-header">
+          <div>
+            <h3>Checklist de Aprobación Humana Formal</h3>
+            <span class="text-dim">Período: {{ payrollService.currentPeriod().periodName }} • 80 Colaboradores</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" (click)="showApprovalModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="warning-callout">
+            <strong>⚠️ Protocolo de Responsabilidad:</strong>
+            Un error en las reglas laborales o fórmulas afectará directamente los pagos y cuentas bancarias de los trabajadores. La aprobación debe ser ratificada por el responsable de Recursos Humanos.
+          </div>
+
+          <div class="checklist-container" style="margin-top: 1rem;">
+            <label class="checklist-item">
+              <input type="checkbox" [ngModel]="approvalCheck1()" (ngModelChange)="approvalCheck1.set($event)" />
+              <div>
+                <strong>1. Asistencia y Horas Extras Verificadas</strong>
+                <p class="text-dim">He cotejado los reportes de marcación biométrica y sustentos de horas extras aprobadas por jefatura.</p>
+              </div>
+            </label>
+
+            <label class="checklist-item">
+              <input type="checkbox" [ngModel]="approvalCheck2()" (ngModelChange)="approvalCheck2.set($event)" />
+              <div>
+                <strong>2. Descuentos y Adelantos Autorizados</strong>
+                <p class="text-dim">Ningún trabajador tiene deducciones no suscritas ni retenciones que superen el límite legal del 50% de sus haberes.</p>
+              </div>
+            </label>
+
+            <label class="checklist-item">
+              <input type="checkbox" [ngModel]="approvalCheck3()" (ngModelChange)="approvalCheck3.set($event)" />
+              <div>
+                <strong>3. Régimen Previsional y Tributario (AFP / ONP / Renta 5ta)</strong>
+                <p class="text-dim">Se validó la asignación de aportes según las comisiones vigentes en la SBS y la proyección anual de 7 UIT.</p>
+              </div>
+            </label>
+
+            <label class="checklist-item">
+              <input type="checkbox" [ngModel]="approvalCheck4()" (ngModelChange)="approvalCheck4.set($event)" />
+              <div>
+                <strong>4. Certificación del Neto Total a Pagar</strong>
+                <p class="text-dim">El importe total de <strong>S/ {{ payrollService.payrollSummary().totalNet.toLocaleString('es-PE', { minimumFractionDigits: 2 }) }}</strong> cuenta con provisión presupuestal confirmada por Tesorería.</p>
+              </div>
+            </label>
+          </div>
+
+          <div style="margin-top: 1.25rem;">
+            <div class="form-group">
+              <label class="form-label">Nombre del Responsable que Aprueba *</label>
+              <input type="text" class="form-input" [ngModel]="reviewerName()" (ngModelChange)="reviewerName.set($event)" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cargo / Función</label>
+              <input type="text" class="form-input" [ngModel]="reviewerRole()" (ngModelChange)="reviewerRole.set($event)" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Observaciones y Nota de Aprobación</label>
+              <textarea class="form-textarea" rows="2" [ngModel]="approvalNotes()" (ngModelChange)="approvalNotes.set($event)"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showApprovalModal.set(false)">Cancelar</button>
+          <button class="btn btn-success" (click)="confirmHumanApproval()">
+            Firmar Digitalmente & Sellar Planilla
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 4. MODAL: REAPERTURA DE PERÍODO -->
+  @if (showReopenModal()) {
+    <div class="modal-overlay" (click)="showReopenModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3>Reapertura Auditada de Planilla</h3>
+          <button class="btn btn-secondary btn-sm" (click)="showReopenModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="text-warning" style="margin-bottom: 1rem; font-size: 0.85rem;">
+            ⚠️ Reabrir un período aprobado registrará un evento de rectificación en la pista de auditoría.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Motivo o Justificación de la Corrección *</label>
+            <textarea
+              class="form-textarea"
+              rows="3"
+              placeholder="Ej: Corrección de horas extras no reportadas en el departamento de Operaciones..."
+              [ngModel]="reopenJustification()"
+              (ngModelChange)="reopenJustification.set($event)">
+            </textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showReopenModal.set(false)">Cancelar</button>
+          <button class="btn btn-primary" (click)="confirmReopenPeriod()">Confirmar Reapertura</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 5. MODAL: LIQUIDACIÓN DE BENEFICIOS SOCIALES -->
+  @if (showLiquidationModal()) {
+    <div class="modal-overlay" (click)="showLiquidationModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 680px;">
+        <div class="modal-header">
+          <h3>Cálculo de Liquidación de Beneficios Sociales (BBSS)</h3>
+          <button class="btn btn-secondary btn-sm" (click)="showLiquidationModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label class="form-label">Trabajador</label>
+              <select class="form-select" [ngModel]="selectedWorkerForLiquidation()" (ngModelChange)="selectedWorkerForLiquidation.set($event)">
+                @for (w of payrollService.companyWorkers(); track w.id) {
+                  <option [value]="w.id">{{ w.name }} ({{ w.role }})</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Motivo del Cese</label>
+              <select class="form-select" [ngModel]="liquidationReason()" (ngModelChange)="liquidationReason.set($event)">
+                <option value="Renuncia">Renuncia Voluntaria</option>
+                <option value="Mutuo Disenso">Mutuo Disenso</option>
+                <option value="Despido Arbitrario">Despido Arbitrario (+ Indemnización)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Meses Laborados</label>
+              <input type="number" class="form-input" [ngModel]="liquidationMonths()" (ngModelChange)="liquidationMonths.set(+$event)" min="1" max="120" />
+            </div>
+          </div>
+
+          <div style="text-align: right; margin-bottom: 1rem;">
+            <button class="btn btn-primary btn-sm" (click)="executeLiquidationCalculation()">
+              Calcular Liquidación
+            </button>
+          </div>
+
+          @if (calculatedLiquidationResult()) {
+            <div class="liquidation-result-box">
+              <h4>Resultado: {{ calculatedLiquidationResult()?.workerName }}</h4>
+              <p class="text-dim">{{ calculatedLiquidationResult()?.breakdownNotes }}</p>
+
+              <div class="liq-metrics-row">
+                <div class="liq-metric">
+                  <span class="text-dim">Monto Bruto:</span>
+                  <strong>S/ {{ calculatedLiquidationResult()?.grossBenefit?.toFixed(2) }}</strong>
+                </div>
+                <div class="liq-metric">
+                  <span class="text-dim">Bono Extra EsSalud (9%):</span>
+                  <strong>S/ {{ calculatedLiquidationResult()?.extraBonusEsSalud?.toFixed(2) }}</strong>
+                </div>
+                <div class="liq-metric">
+                  <span class="text-dim">Retenciones Pensión:</span>
+                  <strong class="text-warning">S/ {{ calculatedLiquidationResult()?.deductions?.toFixed(2) }}</strong>
+                </div>
+                <div class="liq-metric">
+                  <span class="text-dim">NETO TOTAL A LIQUIDAR:</span>
+                  <strong class="text-success" style="font-size: 1.25rem;">S/ {{ calculatedLiquidationResult()?.netToPay?.toFixed(2) }}</strong>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showLiquidationModal.set(false)">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 6. MODAL: PREVISUALIZACIÓN DE BOLETA DE PAGO -->
+  @if (showPayslipModal() && selectedCalcForPayslip()) {
+    <div class="modal-overlay" (click)="showPayslipModal.set(false)">
+      <div class="modal-container" (click)="$event.stopPropagation()" style="max-width: 680px;">
+        <div class="modal-header">
+          <div>
+            <h3>Boleta de Pago Oficial (D.S. 001-98-TR)</h3>
+            <span class="text-dim">{{ selectedCalcForPayslip()?.worker?.name }} • {{ payrollService.currentPeriod().periodName }}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" (click)="showPayslipModal.set(false)">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="payslip-preview-card">
+            <div class="payslip-header">
+              <div>
+                <strong>{{ payrollService.currentCompany().name }}</strong>
+                <div class="text-dim font-mono" style="font-size: 0.75rem;">RUC: {{ payrollService.currentCompany().ruc }}</div>
+              </div>
+              <div style="text-align: right;">
+                <span class="badge badge-neutral">{{ payrollService.currentPeriod().periodName }}</span>
+              </div>
+            </div>
+
+            <div class="payslip-worker-info">
+              <div><strong>DNI:</strong> {{ selectedCalcForPayslip()?.worker?.dni }}</div>
+              <div><strong>Cargo:</strong> {{ selectedCalcForPayslip()?.worker?.role }}</div>
+              <div><strong>Régimen:</strong> {{ selectedCalcForPayslip()?.worker?.pensionSystem }}</div>
+              <div><strong>Ingreso:</strong> {{ selectedCalcForPayslip()?.worker?.hireDate }}</div>
+            </div>
+
+            <div class="payslip-breakdown">
+              <div class="breakdown-col">
+                <span class="col-title text-success">INGRESOS</span>
+                <div class="item-row"><span>Sueldo Básico:</span> <span>S/ {{ selectedCalcForPayslip()?.workedDaysAmount?.toFixed(2) }}</span></div>
+                <div class="item-row"><span>Asignación Familiar:</span> <span>S/ {{ selectedCalcForPayslip()?.familyAllowance?.toFixed(2) }}</span></div>
+                <div class="item-row"><span>Horas Extras:</span> <span>S/ {{ ((selectedCalcForPayslip()?.overtime25Amount || 0) + (selectedCalcForPayslip()?.overtime35Amount || 0)).toFixed(2) }}</span></div>
+                <div class="item-row"><span>Bonos & Movilidad:</span> <span>S/ {{ selectedCalcForPayslip()?.bonusesTotal?.toFixed(2) }}</span></div>
+                <div class="item-row total"><span>TOTAL BRUTO:</span> <strong>S/ {{ selectedCalcForPayslip()?.totalGross?.toFixed(2) }}</strong></div>
+              </div>
+
+              <div class="breakdown-col">
+                <span class="col-title text-warning">DESCUENTOS</span>
+                <div class="item-row"><span>Aporte Pensión:</span> <span>S/ {{ selectedCalcForPayslip()?.totalPensionDeduction?.toFixed(2) }}</span></div>
+                <div class="item-row"><span>Impuesto Renta 5ta:</span> <span>S/ {{ selectedCalcForPayslip()?.tax5thCategory?.toFixed(2) }}</span></div>
+                <div class="item-row"><span>Tardanzas / Faltas:</span> <span>S/ {{ ((selectedCalcForPayslip()?.tardinessDeduction || 0) + (selectedCalcForPayslip()?.absenceDeduction || 0)).toFixed(2) }}</span></div>
+                <div class="item-row"><span>Adelantos / Préstamos:</span> <span>S/ {{ ((selectedCalcForPayslip()?.advanceDeduction || 0) + (selectedCalcForPayslip()?.loanDeduction || 0)).toFixed(2) }}</span></div>
+                <div class="item-row total"><span>TOTAL DCTOS:</span> <strong>S/ {{ selectedCalcForPayslip()?.totalDeductions?.toFixed(2) }}</strong></div>
+              </div>
+            </div>
+
+            <div class="payslip-net-box">
+              <span>NETO A PAGAR:</span>
+              <strong class="text-success" style="font-size: 1.5rem;">S/ {{ selectedCalcForPayslip()?.netPay?.toFixed(2) }}</strong>
+            </div>
+
+            <div class="payslip-employer-notes">
+              <span class="text-dim">Aportes del Empleador (Informativo): EsSalud (9%): S/ {{ selectedCalcForPayslip()?.essaludContribution?.toFixed(2) }} | SCTR (1.25%): S/ {{ selectedCalcForPayslip()?.sctrContribution?.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showPayslipModal.set(false)">Cerrar</button>
+          <button class="btn btn-primary" (click)="downloadCurrentPayslipPDF()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Descargar PDF Oficial
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- TOAST NOTIFICATION -->
+  @if (toastMessage()) {
+    <div class="toast-notification" [class.toast-success]="toastMessage()?.type === 'success'" [class.toast-warning]="toastMessage()?.type === 'warning'" [class.toast-danger]="toastMessage()?.type === 'danger'">
+      <span>{{ toastMessage()?.text }}</span>
+    </div>
+  }
+</div>
